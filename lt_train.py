@@ -144,16 +144,19 @@ def main_worker():
             return
 
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, args, log_training, tf_writer)
+        train_acc, train_loss = train(train_loader, model, criterion, optimizer, epoch, args, log_training)
 
         # evaluate on validation set
-        acc1 = validate(val_loader, model, criterion, epoch, args, log_testing, tf_writer)
+        test_acc, test_loss = validate(val_loader, model, criterion, args, log_testing)
+
+        tf_writer.add_scalars('acc', {'train': train_acc.item(), 'test': test_acc.item()}, epoch)
+        tf_writer.add_scalars('loss', {'train': train_loss, 'test': test_loss}, epoch)
 
         # remember best acc@1 and save checkpoint
-        is_best = acc1 > best_acc1
-        best_acc1 = max(acc1, best_acc1)
+        is_best = test_acc > best_acc1
+        best_acc1 = max(test_acc, best_acc1)
 
-        tf_writer.add_scalar('acc/test_top1_best', best_acc1, epoch)
+
         output_best = 'Best Prec@1: %.3f\n' % best_acc1
         print(output_best)
         log_testing.write(output_best + '\n')
@@ -168,7 +171,7 @@ def main_worker():
         }, is_best)
 
 
-def train(train_loader, model, criterion, optimizer, epoch, args, log, tf_writer):
+def train(train_loader, model, criterion, optimizer, epoch, args, log):
     losses = AverageMeter('Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')
     top5 = AverageMeter('Acc@5', ':6.2f')
@@ -182,9 +185,9 @@ def train(train_loader, model, criterion, optimizer, epoch, args, log, tf_writer
         output = model(input)
         loss = criterion(output, target)
         # measure accuracy and record loss
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        test_acc, acc5 = accuracy(output, target, topk=(1, 5))
         losses.update(loss.item(), input.size(0))
-        top1.update(acc1[0], input.size(0))
+        top1.update(test_acc[0], input.size(0))
         top5.update(acc5[0], input.size(0))
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -201,14 +204,10 @@ def train(train_loader, model, criterion, optimizer, epoch, args, log, tf_writer
             print(output)
             log.write(output + '\n')
             log.flush()
-
-    tf_writer.add_scalar('loss/train', losses.avg, epoch)
-    tf_writer.add_scalar('acc/train_top1', top1.avg, epoch)
-    tf_writer.add_scalar('acc/train_top5', top5.avg, epoch)
-    tf_writer.add_scalar('lr', optimizer.param_groups[-1]['lr'], epoch)
+    return top1.avg, losses.avg
 
 
-def validate(val_loader, model, criterion, epoch, args, log=None, tf_writer=None, flag='val'):
+def validate(val_loader, model, criterion, args, log=None, flag='val'):
     losses = AverageMeter('Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')
     top5 = AverageMeter('Acc@5', ':6.2f')
@@ -223,9 +222,9 @@ def validate(val_loader, model, criterion, epoch, args, log=None, tf_writer=None
             output = model(input)
             loss = criterion(output, target)
             # measure accuracy and record loss
-            acc1, acc5 = accuracy(output, target, topk=(1, 5))
+            test_acc, acc5 = accuracy(output, target, topk=(1, 5))
             losses.update(loss.item(), input.size(0))
-            top1.update(acc1[0], input.size(0))
+            top1.update(test_acc[0], input.size(0))
             top5.update(acc5[0], input.size(0))
 
             _, pred = torch.max(output, 1)
@@ -254,13 +253,7 @@ def validate(val_loader, model, criterion, epoch, args, log=None, tf_writer=None
             log.write(output + '\n')
             log.write(out_cls_acc + '\n')
             log.flush()
-
-        tf_writer.add_scalar('loss/test_' + flag, losses.avg, epoch)
-        tf_writer.add_scalar('acc/test_' + flag + '_top1', top1.avg, epoch)
-        tf_writer.add_scalar('acc/test_' + flag + '_top5', top5.avg, epoch)
-        tf_writer.add_scalars('acc/test_' + flag + '_cls_acc', {str(i): x for i, x in enumerate(cls_acc)}, epoch)
-
-    return top1.avg
+    return top1.avg, losses.avg
 
 
 def adjust_learning_rate(optimizer, epoch, args):
