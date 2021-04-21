@@ -90,16 +90,16 @@ def get_dataset():
     ])
 
     if args.dataset == 'cifar10':
-        train_dataset = IMBALANCECIFAR10(root='/youtu-face-identify-public/jiezhang/data', imb_type=args.imb_type,
+        train_dataset = IMBALANCECIFAR10(root='data', imb_type=args.imb_type,
                                          imb_factor=args.imb_factor, rand_number=args.rand_number, train=True,
                                          download=True, transform=transform_train)
         val_dataset = datasets.CIFAR10(root='/youtu-face-identify-public/jiezhang/data', train=False, download=True,
                                        transform=transform_val)
     elif args.dataset == 'cifar100':
-        train_dataset = IMBALANCECIFAR100(root='/youtu-face-identify-public/jiezhang/data', imb_type=args.imb_type,
+        train_dataset = IMBALANCECIFAR100(root='data', imb_type=args.imb_type,
                                           imb_factor=args.imb_factor, rand_number=args.rand_number, train=True,
                                           download=True, transform=transform_train)
-        val_dataset = datasets.CIFAR100(root='/youtu-face-identify-public/jiezhang/data', train=False, download=True,
+        val_dataset = datasets.CIFAR100(root='data', train=False, download=True,
                                         transform=transform_val)
     else:
         warnings.warn('Dataset is not listed')
